@@ -9,9 +9,10 @@
 #define CMDLINE_MAX 512
 #define ARG_MAX 16
 #define TOKEN_MAX 32
-#define WHITE_SPACE " \t"
-#define STANDARD_OUTPUT 0
 #define MAX_PIPE 4
+
+#define WHITE_SPACE " \t"
+
 #define TRUE 1
 #define FALSE 0
 
@@ -19,14 +20,13 @@ struct Pipeline
 {
 	int pipeSize;
 	char **listOfCommand;
-	int *status;
-	struct Config *listOfConfig[4];
+	int status[MAX_PIPE];
+	struct Config *listOfConfig[MAX_PIPE];
 };
 
-struct FD
-{
-	int fd[2];
-};
+/*
+	Config is the entire command of each pipe
+*/
 struct Config
 {
 	int argumentSize;
@@ -35,46 +35,68 @@ struct Config
 	int isOutputRedirect;
 };
 
+/*
+	FD stores the array whenever pipe() called
+*/
+struct FD
+{
+	int fd[2];
+};
+
 struct Stack
 {
 	char *currDir;
 	struct Stack *next;
 };
 
-// static void pushd(struct Stack *stack, char *str)
-// {
-// 	struct Stack *newElement = malloc(sizeof(struct Stack));
-// 	newElement->currDir = stack->currDir;
-// 	newElement->next = stack->next;
+/*
+	push a string to the stack
+*/
+static void pushd(struct Stack *stack, char *str)
+{
+	struct Stack *newElement = malloc(sizeof(struct Stack));
+	newElement->currDir = stack->currDir;
+	newElement->next = stack->next;
 
-// 	stack->currDir = str;
-// 	stack->next = newElement;
-// }
-
-// static void popd(struct Stack *stack)
-// {
-// 	if (stack->next != NULL)
-// 	{
-// 		stack->currDir = stack->next->currDir;
-// 		stack->next = stack->next->next;
-// 	}
-// }
-
-// static void dirs(struct Stack *stack)
-// {
-// 	struct Stack *iteration = malloc(sizeof(struct Stack));
-// 	iteration = stack;
-// 	while (iteration != NULL)
-// 	{
-// 		printf("%s\n", iteration->currDir);
-// 		iteration = iteration->next;
-// 	}
-// }
+	stack->currDir = str;
+	stack->next = newElement;
+}
 
 /*
-the function splits a string using a split string
-input: a string, and a split string
-output: array of string that is splited by the character
+	pop the current string out of the stack
+*/
+static int popd(struct Stack *stack)
+{
+	if (stack->next != NULL)
+	{
+		stack->currDir = stack->next->currDir;
+		stack->next = stack->next->next;
+		return EXIT_SUCCESS;
+	}
+	fprintf(stderr, "Error: directory stack empty\n");
+	return EXIT_FAILURE;
+}
+
+/*
+	print out the stack
+*/
+static void dirs(struct Stack *stack)
+{
+	struct Stack *iteration = malloc(sizeof(struct Stack));
+	iteration = stack;
+	while (iteration != NULL)
+	{
+		printf("%s\n", iteration->currDir);
+		iteration = iteration->next;
+	}
+
+	fflush(stdout);
+}
+
+/*
+	redirect the standard output to the file
+	return EXIT_FAILURE if failed to open the file
+	return EXIT_SUCCESS if success
 */
 static int redirectionOutput(char *redirectionFile)
 {
@@ -87,6 +109,12 @@ static int redirectionOutput(char *redirectionFile)
 	close(fd1);
 	return EXIT_SUCCESS;
 }
+
+/*
+	the function splits a string using a split string
+	input: a string, a split delimeter
+	output: array of string that is splited by the character
+*/
 static char **splitString(char *string, char *split)
 {
 	char **splitList = malloc(CMDLINE_MAX);
@@ -113,6 +141,10 @@ static char **splitString(char *string, char *split)
 	}
 	return splitList;
 }
+
+/*
+	Get size of a list of strings
+*/
 static int getSize(char **listOfString)
 {
 	int size = 0;
@@ -124,24 +156,34 @@ static int getSize(char **listOfString)
 
 	return size;
 }
+
 /*
-extract arguments and redirection files from the command and saved them to the struct
-input: Config struct and a command
+	extract arguments and redirection files from the command and saved them to the struct
+	input: Config struct and a command
+	return EXIT_FAILURE if any error
+	return EXIT_SUCCESS if success
 */
 static int parseCommand(struct Config *config, char *cmd)
 {
+	// copy the cmd to avoid changing the original cmd before splitted
+	// https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered
 	char *copyCmd = calloc(strlen(cmd) + 1, sizeof(char));
 	strcpy(copyCmd, cmd);
 
+	// parse by pipeline
 	char **splitByLessThan;
 	splitByLessThan = splitString(copyCmd, ">");
-
 	int sizeSplitByLessThan = getSize(splitByLessThan);
+
+	// by default, there is no output redirect
 	config->isOutputRedirect = FALSE;
 
+	// parse each pipeline to the arguments
 	char **listOfArgument = malloc(CMDLINE_MAX);
 	listOfArgument = splitString(splitByLessThan[0], WHITE_SPACE);
 	int argumentSize = getSize(listOfArgument);
+
+	// check the errors of arguments
 	if (argumentSize == 0)
 	{
 		fprintf(stderr, "Error: missing command\n");
@@ -154,39 +196,59 @@ static int parseCommand(struct Config *config, char *cmd)
 				cmd, 1);
 		return EXIT_FAILURE;
 	}
+
+	// if there is redirection file
 	if (sizeSplitByLessThan == 2)
 	{
 		char **splitBySpace = malloc(CMDLINE_MAX);
 		splitBySpace = splitString(splitByLessThan[1], WHITE_SPACE);
+
+		// the redirection file is empty (i.e. "echo >  ")
 		if (getSize(splitBySpace) == 0)
 		{
 			fprintf(stderr, "Error: no output file\n");
 			return EXIT_FAILURE;
 		}
+		// if not empty, set True for the outputFile
 		else
 		{
 			config->isOutputRedirect = TRUE;
 			config->outputFile = splitBySpace[0];
 		}
 	}
+
+	// complete parse each pipe
 	config->listOfArgument = listOfArgument;
 	config->argumentSize = getSize(config->listOfArgument);
 	return EXIT_SUCCESS;
 }
 
+/*
+	extract each pipeline from the command and saved them to the struct
+	input: Pipeline struct and a command
+	return EXIT_FAILURE if any error
+	return EXIT_SUCCESS if success
+*/
 static int parsePipe(struct Pipeline *pipeline, char *cmd)
 {
+	// copy the cmd to avoid changing the original cmd before splitted
 	char *copyCmd = calloc(strlen(cmd) + 1, sizeof(char));
 	strcpy(copyCmd, cmd);
-	char **listPipe = splitString(copyCmd, "|");
 
+	// parse the pipeline
+	char **listPipe = splitString(copyCmd, "|");
 	pipeline->pipeSize = getSize(listPipe);
+
 	struct Config *config;
 	int index = 0;
+
+	// iterate each pipeline to parse the command
 	while (listPipe[index] != NULL)
 	{
+		// parse each pipeline command
 		config = malloc(sizeof(struct Config));
 		int status = parseCommand(config, listPipe[index]);
+
 		if (status == EXIT_FAILURE)
 		{
 			return EXIT_FAILURE;
@@ -194,63 +256,71 @@ static int parsePipe(struct Pipeline *pipeline, char *cmd)
 
 		if (config->isOutputRedirect == TRUE)
 		{
+			// check if the output file is in the last pipeline
 			if (index != pipeline->pipeSize - 1)
 			{
 				fprintf(stderr, "Error: mislocated output redirection\n");
 			}
 			else
 			{
-				// focus here - cannot be here
-				int status = redirectionOutput(config->outputFile);
-				if (status == EXIT_FAILURE)
+				FILE *out_file = fopen(config->outputFile, "w");
+				// check if the output file can be accessed
+				if (out_file == NULL)
 				{
 					fprintf(stderr, "Error: cannot open output file\n");
 				}
+				fclose(out_file);
 			}
 		}
 
 		pipeline->listOfConfig[index] = config;
 		index++;
 	}
+
+	// finish the parse pipeline
 	pipeline->listOfCommand = listPipe;
 	return EXIT_SUCCESS;
 }
 
-static void otherCommand(char *firstArg, char **args)
+/*
+	execute the commands that are not built-in
+*/
+static void otherCommand(struct Config *config, char *firstArg, char **args)
 {
-	int checkExecValue = execvp(firstArg, args);
-	if (checkExecValue < 0)
+	// redirect the output file if needed
+	if (config->isOutputRedirect == TRUE)
+	{
+		redirectionOutput(config->outputFile);
+	}
+
+	int status = execvp(firstArg, args);
+	if (status < 0)
 	{
 		fprintf(stderr, "%s\n", "Error: command not found");
 		exit(EXIT_FAILURE);
 	}
+
 	exit(EXIT_SUCCESS);
 }
 
-static void runOneCommand(char *cmd)
+/*
+	run the command that only has one pipeline
+*/
+static void runOnePipeline(struct Config *config, struct Stack *stack, char *cmd)
 {
 	pid_t pid;
 	int status = 0;
-	struct Config config;
-	memset(&config, 0, sizeof(struct Config));
 
-	// copy command to reserve the original command
-	// https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered
-	char *copyCmd = calloc(strlen(cmd) + 1, sizeof(char));
-	strcpy(copyCmd, cmd);
-
-	parseCommand(&config, copyCmd);
-	free(copyCmd);
-
-	char **args = config.listOfArgument;
+	char **args = config->listOfArgument;
 	char *firstArg = args[0];
 
+	// run built-in commands
 	if (!strcmp(firstArg, "pwd"))
 	{
 		char cwd[CMDLINE_MAX];
 		getcwd(cwd, CMDLINE_MAX);
 		printf("%s\n", cwd);
-		free(config.listOfArgument);
+		fflush(stdout);
 	}
 	else if (!strcmp(firstArg, "cd"))
 	{
@@ -260,30 +330,62 @@ static void runOneCommand(char *cmd)
 			fprintf(stderr, "%s\n", "Error: cannot cd into directory");
 			fprintf(stderr, "+ completed '%s' [%d]\n",
 					cmd, 1);
-			free(config.listOfArgument);
 			return;
 		}
 	}
-	else if (!strcmp(cmd, "exit"))
+	else if (!strcmp(firstArg, "exit"))
 	{
 		fprintf(stderr, "Bye...\n");
 		fprintf(stderr, "+ completed '%s' [%d]\n",
 				cmd, status);
-		free(config.listOfArgument);
+
 		exit(0);
 	}
+	else if (!strcmp(firstArg, "pushd"))
+	{
+		int chdir_status = chdir(args[1]);
+		if (chdir_status == -1)
+		{
+			fprintf(stderr, "%s\n", "Error: no such directory");
+			fprintf(stderr, "+ completed '%s' [%d]\n",
+					cmd, 1);
+
+			return;
+		}
+		char cwd[CMDLINE_MAX];
+		getcwd(cwd, CMDLINE_MAX);
+		pushd(stack, cwd);
+	}
+	else if (!strcmp(firstArg, "dirs"))
+	{
+		dirs(stack);
+	}
+	else if (!strcmp(firstArg, "popd"))
+	{
+		status = popd(stack);
+		if (status == EXIT_FAILURE)
+		{
+			fprintf(stderr, "%s\n", "Error: no such directory");
+			fprintf(stderr, "+ completed '%s' [%d]\n",
+					cmd, 1);
+
+			return;
+		}
+	}
+
+	// run other command that needs fork()
 	else
 	{
 		pid = fork();
 
+		// Child
 		if (pid == 0)
 		{
-			otherCommand(firstArg, args);
-			free(config.listOfArgument);
+			otherCommand(config, firstArg, args);
 		}
+		// Parent
 		else if (pid > 0)
 		{
-			/* Parent */
 			waitpid(-1, &status, 0);
 		}
 		else
@@ -295,62 +397,70 @@ static void runOneCommand(char *cmd)
 			cmd, WEXITSTATUS(status));
 }
 
-static void runCommand(char *cmd)
+/*
+	run the entire command
+*/
+static void runCommand(char *cmd, struct Stack *stack)
 {
+	// parse pipeline
 	struct Pipeline pipeline;
 	memset(&pipeline, 0, sizeof(struct Pipeline));
 	parsePipe(&pipeline, cmd);
-
 	int pipeSize = pipeline.pipeSize;
+
 	if (pipeSize == 0)
 	{
 		return;
 	}
 
+	// only 1 pipeline, then execute runOnePipeline to check if it's built-in command
 	if (pipeSize == 1)
 	{
-		runOneCommand(pipeline.listOfCommand[0]);
+		runOnePipeline(pipeline.listOfConfig[0], stack, pipeline.listOfCommand[0]);
 		dup2(0, STDOUT_FILENO);
-		free(pipeline.listOfCommand);
 		return;
 	}
 
+	// if pipelines are 2 or more, needs to set up the pipeline
 	pid_t p[pipeSize];
 	struct FD pipeFD[pipeSize - 1];
 	memset(&pipeFD, 0, sizeof(struct FD) * pipeSize);
+
+	// create enough pipeline
 	for (int i = 0; i < pipeSize - 1; i++)
 	{
 		pipe(pipeFD[i].fd);
 	}
+
+	// fork and assign appropriate read and write ends for each pipeline
 	for (int i = 0; i < pipeSize; i++)
 	{
 		p[i] = fork();
+
+		// child process
 		if (p[i] == 0)
 		{
-			// https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered
-			// char *copyCmd = calloc(strlen(cmd) + 1, sizeof(char));
-			// strcpy(copyCmd, cmd);
 			char **args = pipeline.listOfConfig[i]->listOfArgument;
 			char *firstArg = args[0];
 
+			// the first pipeline
 			if (i == 0)
 			{
 				dup2(pipeFD[i].fd[1], STDOUT_FILENO);
 			}
+			// the last pipeline
 			else if (i == pipeSize - 1)
 			{
 				dup2(pipeFD[i - 1].fd[0], STDIN_FILENO);
-
-				if (pipeline.listOfConfig[i]->isOutputRedirect == TRUE)
-				{
-					redirectionOutput(pipeline.listOfConfig[i]->outputFile);
-				}
 			}
+			// any pipeline in the middle
 			else
 			{
 				dup2(pipeFD[i - 1].fd[0], STDIN_FILENO);
 				dup2(pipeFD[i].fd[1], STDOUT_FILENO);
 			}
+
+			// close all the pipes for each child
 			for (int i = 0; i < pipeSize - 1; i++)
 			{
 
@@ -358,31 +468,44 @@ static void runCommand(char *cmd)
 				close(pipeFD[i].fd[1]);
 			}
 
-			otherCommand(firstArg, args);
-			// free(pipeline.listOfConfig[i].listOfArgument);
+			// execute the command after assign the pipes
+			otherCommand(pipeline.listOfConfig[i], firstArg, args);
+
 			exit(0);
 		}
 	}
+
+	// close all the pipes for the parent
 	for (int i = 0; i < pipeSize - 1; i++)
 	{
-
 		close(pipeFD[i].fd[0]);
 		close(pipeFD[i].fd[1]);
 	}
 
+	// the parent waits for all children finish processing
 	for (int i = 0; i < pipeSize; i++)
 	{
-		if (p[i] > 0)
-		{
-			waitpid(p[i], &pipeline.status[i], WUNTRACED);
-		}
+		waitpid(p[i], &pipeline.status[i], 0);
 	}
-	free(pipeline.listOfCommand);
+
+	// print the status for each child process
+	fprintf(stderr, "+ completed '%s' ", cmd);
+	for (int i = 0; i < pipeSize; i++)
+	{
+		fprintf(stderr, "[%d]", WEXITSTATUS(pipeline.status[i]));
+	}
+	fprintf(stderr, "\n");
 }
 
 int main(void)
 {
+	// set up the stack for directories
 	char cmd[CMDLINE_MAX];
+	struct Stack stack;
+	memset(&stack, 0, sizeof(struct Stack));
+	char cwd[CMDLINE_MAX];
+	getcwd(cwd, CMDLINE_MAX);
+	stack.currDir = cwd;
 
 	while (1)
 	{
@@ -407,7 +530,7 @@ int main(void)
 		if (nl)
 			*nl = '\0';
 
-		runCommand(cmd);
+		runCommand(cmd, &stack);
 	}
 
 	return EXIT_SUCCESS;
