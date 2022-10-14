@@ -65,14 +65,12 @@ check if the pipeline is the first one, otherwise it causes an error.
 
 There are 2 structures building the stack. One is `StackNode` that holds the
 current directory and the next node. And the main `Stack` holds the top node and
-the size of the stack.
+the size of the stack. There are 3 methods for stack: `popd`, `pushd`, `dirs`.
+
 ## Testing
 
----
-
 Testing was mostly done using the `tester.sh` file that was given to us. Before
-the test file, Christian was mostly moving the branch into the CSIF and manually
-testing edge cases.
+the test file, we use some cases on the project prompt to verify our progress.
 
 ## Sources
 
