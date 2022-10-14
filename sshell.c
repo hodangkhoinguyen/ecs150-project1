@@ -234,8 +234,6 @@ static int parseCommand(struct Config *config, char *cmd)
 	else if (argumentSize > ARG_MAX)
 	{
 		fprintf(stderr, "%s\n", "Error: too many process arguments");
-		fprintf(stderr, "+ completed '%s' [%d]\n",
-				cmd, 1);
 		return EXIT_FAILURE;
 	}
 
@@ -268,10 +266,10 @@ static int parseCommand(struct Config *config, char *cmd)
 		// the input file is empty (i.e. "echo >  ")
 		if (getSize(splitBySpace) == 0)
 		{
-			fprintf(stderr, "Error: no output file\n");
+			fprintf(stderr, "Error: no input file\n");
 			return EXIT_FAILURE;
 		}
-		// if not empty, set True for the outputFile
+		// if not empty, set True for the input file
 		else
 		{
 			config->isInputRedirect = TRUE;
@@ -316,12 +314,14 @@ static int parsePipe(struct Pipeline *pipeline, char *cmd)
 			return EXIT_FAILURE;
 		}
 
+		// check potential errors for output redirect
 		if (config->isOutputRedirect == TRUE)
 		{
 			// check if the output file is in the last pipeline
 			if (index != pipeline->pipeSize - 1)
 			{
 				fprintf(stderr, "Error: mislocated output redirection\n");
+				return EXIT_FAILURE;
 			}
 			else
 			{
@@ -330,11 +330,33 @@ static int parsePipe(struct Pipeline *pipeline, char *cmd)
 				if (out_file == NULL)
 				{
 					fprintf(stderr, "Error: cannot open output file\n");
+					return EXIT_FAILURE;
 				}
 				fclose(out_file);
 			}
 		}
 
+		// check potential errors for input redirect
+		if (config->isInputRedirect == TRUE)
+		{
+			// check if the input file is in the first pipeline
+			if (index != 0)
+			{
+				fprintf(stderr, "Error: mislocated input redirection\n");
+				return EXIT_FAILURE;
+			}
+			else
+			{
+				FILE *in_file = fopen(config->inputFile, "r");
+				// check if the input file can be accessed
+				if (in_file == NULL)
+				{
+					fprintf(stderr, "Error: cannot open input file\n");
+					return EXIT_FAILURE;
+				}
+				fclose(in_file);
+			}
+		}
 		pipeline->listOfConfig[index] = config;
 		index++;
 	}
@@ -431,10 +453,8 @@ static void runOnePipeline(struct Config *config, struct Stack *stack, char *cmd
 		status = popd(stack);
 		if (status == EXIT_FAILURE)
 		{
-			fprintf(stderr, "%s\n", "Error: no such directory");
 			fprintf(stderr, "+ completed '%s' [%d]\n",
 					cmd, 1);
-
 			return;
 		}
 	}
@@ -471,7 +491,12 @@ static void runCommand(char *cmd, struct Stack *stack)
 	// parse pipeline
 	struct Pipeline pipeline;
 	memset(&pipeline, 0, sizeof(struct Pipeline));
-	parsePipe(&pipeline, cmd);
+	int parseStatus = parsePipe(&pipeline, cmd);
+	if (parseStatus == EXIT_FAILURE)
+	{
+		return;
+	}
+
 	int pipeSize = pipeline.pipeSize;
 
 	if (pipeSize == 0)
