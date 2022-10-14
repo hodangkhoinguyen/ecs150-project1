@@ -1,6 +1,7 @@
 # Report
 
 ## Summary
+
 This program `sshell` can take command from users with pipeline supported, then 
 execute those actions from the kernel. It is also able to display some errors 
 if needed, but the program won't die until the users enter `exit`.
@@ -15,7 +16,7 @@ to see if that command is built-in.
 3. If there are 2 pipelines or more, then it will use pipe to assign read and
 write endings for each forked child.
 
-# Parsing the command
+### Parsing the command
 
 The struct `Pipeline` stores pipeSize, list of pipelines, list of status (if
 fork is executed), and list of struct `Config`.
@@ -31,13 +32,13 @@ obtaining the command for each pipeline, it's used to parse into each `Config`.
 At here, for each phase of parsing, we always check some restrictions (e.g.
 empty, too many argumments) before moving to the next one.
 
-# Builtin commands
+### Builtin commands
 
 These commands are executed if we see there is only 1 pipeline after parsing.
 Then, the `Config` will be executed and see if the command is builtin. No
 fork needed for this process.
 
-# Piping
+### Piping
 
 If the pipe size is 2 or more, let's call size of `n`, there must be `n-1` pipes
 required. We open `n-1` pipes to used. For each forked process (both children),
@@ -49,23 +50,26 @@ the status for all child processes.
 However, for struct `Pipeline`, we strictly assign the arrays `status` and
 `Config` to the size of 4, so it only supports 4 pipelines maximum.
 
-# Output redirection
+### Output redirection
 
 Because each `Config` has the property `isOutputRedirection`, we just need to open the if it's true and vice versa, using `dup2` for `STDOUT`. Then continue
 executing the rest as usual. If output redirection needed, it also checks if the
 pipeline is the last one. If not, it causes an error.
 
-# Input redirection
+### Input redirection
 
 Similar with output redirection, `Config` has input redirection property. If it's
 true, then we redirect the `STDIN` to the file using `dup2`. Also, we needs to
 check if the pipeline is the first one, otherwise it causes an error.
 
-# Directory stack
+### Directory stack
 
 There are 2 structures building the stack. One is `StackNode` that holds the
 current directory and the next node. And the main `Stack` holds the top node and
-the size of the stack. There are 3 methods for stack: `popd`, `pushd`, `dirs`.
+the size of the stack. We can consider this data struct as a single linked list.
+There are 3 methods for stack: `popd`, `pushd`, `dirs`. `pushd` and `popd` 
+behaves similarly with `cd`, but the stack will be updated.
+If the top `StackNode` has `next = NULL`, then the stack cannot be poped.
 
 ## Testing
 
