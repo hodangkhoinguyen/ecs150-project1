@@ -92,6 +92,7 @@ static int popd(struct Stack *stack)
 		iteration->currDir = iteration->next->currDir;
 		iteration->next = iteration->next->next;
 		chdir(iteration->currDir);
+		stack->size--;
 		return EXIT_SUCCESS;
 	}
 	fprintf(stderr, "Error: directory stack empty\n");

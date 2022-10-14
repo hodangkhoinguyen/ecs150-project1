@@ -52,8 +52,20 @@ However, for struct `Pipeline`, we strictly assign the arrays `status` and
 # Output redirection
 
 Because each `Config` has the property `isOutputRedirection`, we just need to open the if it's true and vice versa, using `dup2` for `STDOUT`. Then continue
-executing the rest as usual.
+executing the rest as usual. If output redirection needed, it also checks if the
+pipeline is the last one. If not, it causes an error.
 
+# Input redirection
+
+Similar with output redirection, `Config` has input redirection property. If it's
+true, then we redirect the `STDIN` to the file using `dup2`. Also, we needs to
+check if the pipeline is the first one, otherwise it causes an error.
+
+# Directory stack
+
+There are 2 structures building the stack. One is `StackNode` that holds the
+current directory and the next node. And the main `Stack` holds the top node and
+the size of the stack.
 ## Testing
 
 ---
