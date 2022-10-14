@@ -23,6 +23,7 @@ The implementation of this program follows the steps:
 to see if that command is built-in.
 3. If there are 2 pipelines or more, then it will use pipe to assign read and
 write endings for each forked child.
+4. Close all pipes for each child and parent process.
 
 ### Parsing the command
 
@@ -38,8 +39,14 @@ of size `n`, then there should be `n-1` `FD`'s.
 
 The whole input command will be splitted by `|` sign into `Pipeline`. After
 obtaining the command for each pipeline, it's used to parse into each `Config`.
-At here, for each phase of parsing, we always check some restrictions (e.g.
-empty, too many argumments) before moving to the next one.
+
+For each pipe, `Config`, is parsed by `parseCommand`. The command for each pipe
+is splitted by `>` and `<` to check if there is any redirection needed, either 
+input or output. The rest is splited by `white space`, either ` ` or `\t`, to
+get the arguments.
+
+For each phase of parsing, we always check some restrictions (e.g. empty, too 
+many argumments) before moving to the next one.
 
 ### Builtin commands
 
