@@ -43,10 +43,16 @@ struct FD
 	int fd[2];
 };
 
-struct Stack
+struct StackNode
 {
 	char *currDir;
-	struct Stack *next;
+	struct StackNode *next;
+};
+
+struct Stack
+{
+	struct StackNode *top;
+	int size;
 };
 
 /*
@@ -54,12 +60,23 @@ struct Stack
 */
 static void pushd(struct Stack *stack, char *str)
 {
-	struct Stack *newElement = malloc(sizeof(struct Stack));
-	newElement->currDir = stack->currDir;
-	newElement->next = stack->next;
+	struct StackNode *newElement = malloc(sizeof(struct StackNode));
+	if (stack->top == NULL)
+	{
+		stack->size = 0;
+		newElement->currDir = str;
+		newElement->next = NULL;
+	}
+	else
+	{
+		stack->size++;
+		newElement->next = stack->top;
+		char *copyString = calloc(strlen(str) + 1, sizeof(char));
+		strcpy(copyString, str);
+		newElement->currDir = copyString;
+	}
 
-	stack->currDir = str;
-	stack->next = newElement;
+	stack->top = newElement;
 }
 
 /*
@@ -67,10 +84,12 @@ static void pushd(struct Stack *stack, char *str)
 */
 static int popd(struct Stack *stack)
 {
-	if (stack->next != NULL)
+	struct StackNode *iteration = stack->top;
+	if (iteration->next != NULL)
 	{
-		stack->currDir = stack->next->currDir;
-		stack->next = stack->next->next;
+		iteration->currDir = iteration->next->currDir;
+		iteration->next = iteration->next->next;
+		chdir(iteration->currDir);
 		return EXIT_SUCCESS;
 	}
 	fprintf(stderr, "Error: directory stack empty\n");
@@ -82,15 +101,13 @@ static int popd(struct Stack *stack)
 */
 static void dirs(struct Stack *stack)
 {
-	struct Stack *iteration = malloc(sizeof(struct Stack));
-	iteration = stack;
+	struct StackNode *iteration = malloc(sizeof(struct StackNode));
+	iteration = stack->top;
 	while (iteration != NULL)
 	{
 		printf("%s\n", iteration->currDir);
 		iteration = iteration->next;
 	}
-
-	fflush(stdout);
 }
 
 /*
@@ -313,14 +330,12 @@ static void runOnePipeline(struct Config *config, struct Stack *stack, char *cmd
 
 	char **args = config->listOfArgument;
 	char *firstArg = args[0];
-
 	// run built-in commands
 	if (!strcmp(firstArg, "pwd"))
 	{
 		char cwd[CMDLINE_MAX];
 		getcwd(cwd, CMDLINE_MAX);
 		printf("%s\n", cwd);
-		fflush(stdout);
 	}
 	else if (!strcmp(firstArg, "cd"))
 	{
@@ -417,7 +432,6 @@ static void runCommand(char *cmd, struct Stack *stack)
 	if (pipeSize == 1)
 	{
 		runOnePipeline(pipeline.listOfConfig[0], stack, pipeline.listOfCommand[0]);
-		dup2(0, STDOUT_FILENO);
 		return;
 	}
 
@@ -505,7 +519,7 @@ int main(void)
 	memset(&stack, 0, sizeof(struct Stack));
 	char cwd[CMDLINE_MAX];
 	getcwd(cwd, CMDLINE_MAX);
-	stack.currDir = cwd;
+	pushd(&stack, cwd);
 
 	while (1)
 	{
