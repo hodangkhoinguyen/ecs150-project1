@@ -85,7 +85,7 @@ If the top `StackNode` has `next = NULL`, then the stack cannot be poped.
 Testing was mostly done using the `tester.sh` file that was given to us. Before
 the test file, we use some cases on the project prompt to verify our progress.
 
-## Coding styles
+## Some notes
 
 In the program, we have used many built-in libraries and define some constants.
 Besides, we take advantage of `EXIT_FAILURE` and `EXIT_SUCCESS` not only for the
@@ -93,12 +93,15 @@ Besides, we take advantage of `EXIT_FAILURE` and `EXIT_SUCCESS` not only for the
 see if those functions can run correctly. For example, the `parseCommand` and
 `parsePipeline` use those constants to see if the input command has any error.
 
-## Sources
+## References
 
-In the function `parseCommand()`, there was a [stackoverflow question](https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered) that we
-found extremely helpful in the creation of the function.
-// https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered
+When using split function for parsing, it may change the original string. Thus,
+we make a copy of the string and pass it to the split function. We refer to
+this link: 
+(https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered) 
 
+For the stack struct, we refer the link below and implement our own:
 https://stackoverflow.com/questions/1919975/creating-a-stack-of-strings-in-c
 
-professor notes and slides
+Besides, we refer many examples that are given during lectures, slides, and
+discussions in ECS 150 of Professor Joel Porquet-Lupine. 

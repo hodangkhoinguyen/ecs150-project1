@@ -1,20 +1,19 @@
+#include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/wait.h>
-#include <dirent.h>
-#include <fcntl.h>
+#include <unistd.h>
 
 #define CMDLINE_MAX 512
 #define ARG_MAX 16
 #define TOKEN_MAX 32
 #define MAX_PIPE 4
-
-#define WHITE_SPACE " \t"
-
 #define TRUE 1
 #define FALSE 0
+
+#define WHITE_SPACE " \t"
 
 struct Pipeline
 {
