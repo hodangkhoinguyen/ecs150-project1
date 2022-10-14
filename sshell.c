@@ -33,6 +33,8 @@ struct Config
 	char **listOfArgument;
 	char *outputFile;
 	int isOutputRedirect;
+	char *inputFile;
+	int isInputRedirect;
 };
 
 /*
@@ -128,6 +130,23 @@ static int redirectionOutput(char *redirectionFile)
 }
 
 /*
+	redirect the standard input to the file
+	return EXIT_FAILURE if failed to open the file
+	return EXIT_SUCCESS if success
+*/
+static int redirectionInput(char *redirectionFile)
+{
+	int fd1 = open(redirectionFile, O_RDONLY);
+	if (fd1 < 0)
+	{
+		return EXIT_FAILURE;
+	}
+	dup2(fd1, STDIN_FILENO);
+	close(fd1);
+	return EXIT_SUCCESS;
+}
+
+/*
 	the function splits a string using a split string
 	input: a string, a split delimeter
 	output: array of string that is splited by the character
@@ -186,17 +205,24 @@ static int parseCommand(struct Config *config, char *cmd)
 	char *copyCmd = calloc(strlen(cmd) + 1, sizeof(char));
 	strcpy(copyCmd, cmd);
 
-	// parse by pipeline
-	char **splitByLessThan;
-	splitByLessThan = splitString(copyCmd, ">");
-	int sizeSplitByLessThan = getSize(splitByLessThan);
+	// parse by output
+	char **splitByOutput;
+	splitByOutput = splitString(copyCmd, ">");
+	int sizeSplitByOutput = getSize(splitByOutput);
 
 	// by default, there is no output redirect
 	config->isOutputRedirect = FALSE;
+	config->isInputRedirect = FALSE;
+
+	// parse by input
+	char **splitByInput;
+	strcpy(copyCmd, splitByOutput[0]);
+	splitByInput = splitString(copyCmd, "<");
+	int sizeSplitByInput = getSize(splitByInput);
 
 	// parse each pipeline to the arguments
 	char **listOfArgument = malloc(CMDLINE_MAX);
-	listOfArgument = splitString(splitByLessThan[0], WHITE_SPACE);
+	listOfArgument = splitString(splitByInput[0], WHITE_SPACE);
 	int argumentSize = getSize(listOfArgument);
 
 	// check the errors of arguments
@@ -213,13 +239,13 @@ static int parseCommand(struct Config *config, char *cmd)
 		return EXIT_FAILURE;
 	}
 
-	// if there is redirection file
-	if (sizeSplitByLessThan == 2)
+	// if there is output file
+	if (sizeSplitByOutput == 2)
 	{
 		char **splitBySpace = malloc(CMDLINE_MAX);
-		splitBySpace = splitString(splitByLessThan[1], WHITE_SPACE);
+		splitBySpace = splitString(splitByOutput[1], WHITE_SPACE);
 
-		// the redirection file is empty (i.e. "echo >  ")
+		// the output file is empty (i.e. "echo >  ")
 		if (getSize(splitBySpace) == 0)
 		{
 			fprintf(stderr, "Error: no output file\n");
@@ -230,6 +256,26 @@ static int parseCommand(struct Config *config, char *cmd)
 		{
 			config->isOutputRedirect = TRUE;
 			config->outputFile = splitBySpace[0];
+		}
+	}
+
+	// if there is input file
+	if (sizeSplitByInput == 2)
+	{
+		char **splitBySpace = malloc(CMDLINE_MAX);
+		splitBySpace = splitString(splitByInput[1], WHITE_SPACE);
+
+		// the input file is empty (i.e. "echo >  ")
+		if (getSize(splitBySpace) == 0)
+		{
+			fprintf(stderr, "Error: no output file\n");
+			return EXIT_FAILURE;
+		}
+		// if not empty, set True for the outputFile
+		else
+		{
+			config->isInputRedirect = TRUE;
+			config->inputFile = splitBySpace[0];
 		}
 	}
 
@@ -307,6 +353,12 @@ static void otherCommand(struct Config *config, char *firstArg, char **args)
 	if (config->isOutputRedirect == TRUE)
 	{
 		redirectionOutput(config->outputFile);
+	}
+
+	// redirect the output file if needed
+	if (config->isInputRedirect == TRUE)
+	{
+		redirectionInput(config->inputFile);
 	}
 
 	int status = execvp(firstArg, args);
