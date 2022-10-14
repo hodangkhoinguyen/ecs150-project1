@@ -12,7 +12,9 @@
 #define MAX_PIPE 4
 #define TRUE 1
 #define FALSE 0
-
+#define PIPE_SIGN "|"
+#define OUTPUT_SIGN ">"
+#define INPUT_SIGN "<"
 #define WHITE_SPACE " \t"
 
 struct Pipeline
@@ -207,7 +209,7 @@ static int parseCommand(struct Config *config, char *cmd)
 
 	// parse by output
 	char **splitByOutput;
-	splitByOutput = splitString(copyCmd, ">");
+	splitByOutput = splitString(copyCmd, OUTPUT_SIGN);
 	int sizeSplitByOutput = getSize(splitByOutput);
 
 	// by default, there is no output redirect
@@ -217,7 +219,7 @@ static int parseCommand(struct Config *config, char *cmd)
 	// parse by input
 	char **splitByInput;
 	strcpy(copyCmd, splitByOutput[0]);
-	splitByInput = splitString(copyCmd, "<");
+	splitByInput = splitString(copyCmd, INPUT_SIGN);
 	int sizeSplitByInput = getSize(splitByInput);
 
 	// parse each pipeline to the arguments
@@ -296,7 +298,7 @@ static int parsePipe(struct Pipeline *pipeline, char *cmd)
 	strcpy(copyCmd, cmd);
 
 	// parse the pipeline
-	char **listPipe = splitString(copyCmd, "|");
+	char **listPipe = splitString(copyCmd, PIPE_SIGN);
 	pipeline->pipeSize = getSize(listPipe);
 
 	struct Config *config;
