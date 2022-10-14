@@ -6,6 +6,14 @@ This program `sshell` can take command from users with pipeline supported, then
 execute those actions from the kernel. It is also able to display some errors 
 if needed, but the program won't die until the users enter `exit`.
 
+## Introduction
+
+Every time the program launches, the terminal displays a prompt `sshell$` and
+waits for users to enter their command. After the users enter the command, it
+starts to first parse the command and check if there's any error. If not, the
+program proceeds to executes the command. For the execution phase, once it's
+done with execution, the program will notify `+ completed ...` followed by the
+status for each pipe (e.g. `0` means success).
 
 ## Implementation
 
@@ -18,11 +26,12 @@ write endings for each forked child.
 
 ### Parsing the command
 
-The struct `Pipeline` stores pipeSize, list of pipelines, list of status (if
-fork is executed), and list of struct `Config`.
+At the beginning of each execution, the program will create a struct `Pipeline`
+which stores pipeSize, list of pipelines, list of status (if fork is executed), 
+and list of struct `Config`.
 
-The struct `Config` represents for one single Pipeline process, which has 
-argument size, list of arguments, and check if there is output redirection.
+The struct `Config` represents for one single Pipeline process, which has argument
+size, list of arguments, and check if there is output redirection.
 
 The struct `FD` holds 2 R/W endings of each pipe. So, when we execute pipelines
 of size `n`, then there should be `n-1` `FD`'s.
@@ -75,6 +84,14 @@ If the top `StackNode` has `next = NULL`, then the stack cannot be poped.
 
 Testing was mostly done using the `tester.sh` file that was given to us. Before
 the test file, we use some cases on the project prompt to verify our progress.
+
+## Coding styles
+
+In the program, we have used many built-in libraries and define some constants.
+Besides, we take advantage of `EXIT_FAILURE` and `EXIT_SUCCESS` not only for the
+`exit()` function, but also for return value of some functions that we want to
+see if those functions can run correctly. For example, the `parseCommand` and
+`parsePipeline` use those constants to see if the input command has any error.
 
 ## Sources
 
