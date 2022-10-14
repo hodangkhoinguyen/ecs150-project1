@@ -98,10 +98,32 @@ see if those functions can run correctly. For example, the `parseCommand` and
 When using split function for parsing, it may change the original string. Thus,
 we make a copy of the string and pass it to the split function. We refer to
 this link: 
-(https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered) 
+https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered
 
 For the stack struct, we refer the link below and implement our own:
 https://stackoverflow.com/questions/1919975/creating-a-stack-of-strings-in-c
 
 Besides, we refer many examples that are given during lectures, slides, and
-discussions in ECS 150 of Professor Joel Porquet-Lupine. 
+discussions in ECS 150 of Professor Joel Porquet-Lupine.
+
+## Experience and Lesson
+
+This project seems complicated at first and it is truly time-consuming. However,
+it is good that we start early, especially we have rewrite the parsing phase
+many times to finalize our program. The most difficult part about this project
+is we are not sure if we go on the correct track, because there are times later
+on we realize that we should have implemented some of the functions or structs
+differently to adapt the new phase. But it gives us real experience because
+these things actually happen in programming work everyday.
+
+We get a chance to use GitHub a lot, although both of us have experience with 
+it before. We also learn to apply good code styles and editor config to keep
+the code appearance consistently.
+
+One of the drawbacks is some functions should be optimally divided into smaller 
+tasks. We also should have planned better to reduce rewriting code many times.
+Because both of us don't have much experience with C, so it takes so much time
+to research and learn many new functions. For example, the way `strtok` logic
+is pretty weird.
+
+Overall, this project is interesting and a good start for the course.
