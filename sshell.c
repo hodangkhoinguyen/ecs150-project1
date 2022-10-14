@@ -183,7 +183,6 @@ static int getSize(char **listOfString)
 static int parseCommand(struct Config *config, char *cmd)
 {
 	// copy the cmd to avoid changing the original cmd before splitted
-	// https://stackoverflow.com/questions/17104953/c-strtok-split-string-into-tokens-but-keep-old-data-unaltered
 	char *copyCmd = calloc(strlen(cmd) + 1, sizeof(char));
 	strcpy(copyCmd, cmd);
 
